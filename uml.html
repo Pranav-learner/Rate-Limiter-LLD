@@ -1,0 +1,510 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Rate Limiter — UML Design</title>
+    <meta name="description" content="Interactive UML class diagram for the Rate Limiter design pattern">
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Inter:wght@400;600;900&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            background: #070b12;
+            background-image:
+                radial-gradient(ellipse at 10% 20%, rgba(99,102,241,0.12) 0%, transparent 50%),
+                radial-gradient(ellipse at 90% 80%, rgba(236,72,153,0.10) 0%, transparent 50%),
+                radial-gradient(ellipse at 50% 50%, rgba(14,165,233,0.05) 0%, transparent 70%);
+            font-family: 'Inter', sans-serif;
+            color: #f1f5f9;
+            height: 100vh;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        header {
+            padding: 1.25rem 2rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            border-bottom: 1px solid rgba(255,255,255,0.06);
+            background: rgba(7,11,18,0.8);
+            backdrop-filter: blur(20px);
+            z-index: 100;
+        }
+
+        header h1 {
+            font-size: 1.5rem;
+            font-weight: 900;
+            background: linear-gradient(135deg, #818cf8, #c084fc, #f472b6);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            letter-spacing: -0.5px;
+        }
+
+        .badge {
+            background: rgba(99,102,241,0.15);
+            border: 1px solid rgba(99,102,241,0.4);
+            color: #a5b4fc;
+            padding: 0.3rem 0.85rem;
+            border-radius: 99px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            letter-spacing: 0.5px;
+        }
+
+        #canvas-wrap {
+            position: relative;
+            flex: 1;
+            overflow: hidden;
+            cursor: default;
+        }
+
+        /* SVG for arrows — positioned behind nodes */
+        #arrow-layer {
+            position: absolute;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        /* ---- UML NODE ---- */
+        .uml-node {
+            position: absolute;
+            min-width: 220px;
+            background: linear-gradient(145deg, rgba(22,30,50,0.98), rgba(15,20,40,0.98));
+            border-radius: 12px;
+            border: 1px solid rgba(255,255,255,0.09);
+            box-shadow:
+                0 0 0 1px rgba(99,102,241,0.15),
+                0 8px 30px rgba(0,0,0,0.6),
+                inset 0 1px 0 rgba(255,255,255,0.05);
+            cursor: grab;
+            user-select: none;
+            z-index: 10;
+            transition: box-shadow 0.15s ease, border-color 0.15s ease;
+        }
+
+        .uml-node:active { cursor: grabbing; }
+
+        .uml-node:hover, .uml-node.dragging {
+            box-shadow:
+                0 0 0 2px rgba(129,140,248,0.55),
+                0 15px 50px rgba(0,0,0,0.8),
+                0 0 40px rgba(99,102,241,0.2),
+                inset 0 1px 0 rgba(255,255,255,0.08);
+            border-color: rgba(129,140,248,0.4);
+            z-index: 20;
+        }
+
+        /* Color variants by type */
+        .uml-node.interface-node .node-header {
+            background: linear-gradient(135deg, rgba(99,102,241,0.35), rgba(139,92,246,0.2));
+            border-bottom: 1px solid rgba(99,102,241,0.35);
+        }
+
+        .uml-node.exception-node .node-header {
+            background: linear-gradient(135deg, rgba(220,38,38,0.35), rgba(185,28,28,0.2));
+            border-bottom: 1px solid rgba(220,38,38,0.35);
+        }
+
+        .uml-node.model-node .node-header {
+            background: linear-gradient(135deg, rgba(14,165,233,0.3), rgba(2,132,199,0.15));
+            border-bottom: 1px solid rgba(14,165,233,0.3);
+        }
+
+        .uml-node.proxy-node .node-header {
+            background: linear-gradient(135deg, rgba(234,179,8,0.28), rgba(202,138,4,0.15));
+            border-bottom: 1px solid rgba(234,179,8,0.28);
+        }
+
+        .uml-node > .node-header {
+            padding: 0.7rem 1rem;
+            border-radius: 12px 12px 0 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 0.2rem;
+            background: linear-gradient(135deg, rgba(51,65,85,0.4), rgba(30,41,59,0.25));
+            border-bottom: 1px solid rgba(255,255,255,0.07);
+        }
+
+        .node-stereotype {
+            font-size: 0.65rem;
+            font-style: italic;
+            color: #a5b4fc;
+            font-family: 'JetBrains Mono', monospace;
+            letter-spacing: 1px;
+        }
+
+        .node-title {
+            font-size: 0.9rem;
+            font-weight: 700;
+            color: #f1f5f9;
+            letter-spacing: 0.2px;
+        }
+
+        .node-section {
+            padding: 0.55rem 1rem;
+            border-top: 1px solid rgba(255,255,255,0.05);
+        }
+
+        .node-section:first-of-type {
+            border-top: none;
+        }
+
+        .node-row {
+            display: flex;
+            align-items: baseline;
+            gap: 0.35rem;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.73rem;
+            line-height: 1.7;
+            color: #94a3b8;
+            white-space: nowrap;
+        }
+
+        .node-row .visibility {
+            color: #60a5fa;
+            font-weight: 700;
+            min-width: 10px;
+        }
+
+        .node-row .member-type {
+            color: #a78bfa;
+            font-style: italic;
+        }
+
+        .node-row .member-name { color: #e2e8f0; }
+        .node-row .method-name { color: #34d399; }
+        .node-row .return-type { color: #f59e0b; }
+
+        /* ---- EDGE LABELS ---- */
+        .edge-label {
+            font: 600 11px 'Inter', sans-serif;
+            fill: #94a3b8;
+        }
+
+        /* Arrow marker definitions handled in SVG */
+    </style>
+</head>
+<body>
+
+<header>
+    <h1>Rate Limiter Architecture</h1>
+    <span class="badge">Interactive UML · Drag to rearrange</span>
+</header>
+
+<div id="canvas-wrap">
+    <svg id="arrow-layer">
+        <defs>
+            <marker id="arrow-implements" markerWidth="12" markerHeight="10" refX="10" refY="5" orient="auto">
+                <polygon points="0,0 12,5 0,10" fill="none" stroke="#818cf8" stroke-width="1.2"/>
+            </marker>
+            <marker id="arrow-uses" markerWidth="10" markerHeight="10" refX="10" refY="5" orient="auto">
+                <path d="M0,0 L10,5 L0,10" fill="none" stroke="#94a3b8" stroke-width="1.5"/>
+            </marker>
+            <marker id="arrow-throws" markerWidth="10" markerHeight="10" refX="10" refY="5" orient="auto">
+                <path d="M0,0 L10,5 L0,10" fill="none" stroke="#f87171" stroke-width="1.5"/>
+            </marker>
+            <marker id="arrow-creates" markerWidth="10" markerHeight="10" refX="10" refY="5" orient="auto">
+                <path d="M0,0 L10,5 L0,10" fill="none" stroke="#38bdf8" stroke-width="1.5"/>
+            </marker>
+            <marker id="arrow-hasa" markerWidth="10" markerHeight="10" refX="10" refY="5" orient="auto">
+                <path d="M0,0 L10,5 L0,10" fill="#94a3b8" stroke="none"/>
+            </marker>
+        </defs>
+    </svg>
+
+    <!-- INTERFACES -->
+    <div class="uml-node interface-node" id="node-RemoteAPIService" style="left:60px; top:40px;">
+        <div class="node-header">
+            <span class="node-stereotype">«interface»</span>
+            <span class="node-title">RemoteAPIService</span>
+        </div>
+        <div class="node-section">
+            <div class="node-row"><span class="visibility">+</span><span class="method-name">call</span><span style="color:#94a3b8">(clientId, req)</span><span class="return-type">Response</span></div>
+        </div>
+    </div>
+
+    <div class="uml-node interface-node" id="node-RateLimitStrategy" style="left:500px; top:40px;">
+        <div class="node-header">
+            <span class="node-stereotype">«interface»</span>
+            <span class="node-title">RateLimitStrategy</span>
+        </div>
+        <div class="node-section">
+            <div class="node-row"><span class="visibility">+</span><span class="method-name">isAllowed</span><span style="color:#94a3b8">(clientId)</span><span class="return-type">boolean</span></div>
+            <div class="node-row"><span class="visibility">+</span><span class="method-name">getConfig</span><span style="color:#94a3b8">()</span><span class="return-type">RateLimiterConfig</span></div>
+        </div>
+    </div>
+
+    <!-- IMPLEMENTATIONS -->
+    <div class="uml-node" id="node-RealRemoteAPIService" style="left:60px; top:240px;">
+        <div class="node-header"><span class="node-title">RealRemoteAPIService</span></div>
+        <div class="node-section">
+            <div class="node-row"><span class="visibility">−</span><span class="member-name">endpoint</span><span class="member-type">String</span></div>
+        </div>
+        <div class="node-section">
+            <div class="node-row"><span class="visibility">+</span><span class="method-name">call</span><span style="color:#94a3b8">(clientId, req)</span><span class="return-type">Response</span></div>
+        </div>
+    </div>
+
+    <div class="uml-node proxy-node" id="node-RateLimitedAPIProxy" style="left:280px; top:240px;">
+        <div class="node-header"><span class="node-title">RateLimitedAPIProxy</span></div>
+        <div class="node-section">
+            <div class="node-row"><span class="visibility">−</span><span class="member-name">realService</span><span class="member-type">RemoteAPIService</span></div>
+            <div class="node-row"><span class="visibility">−</span><span class="member-name">strategy</span><span class="member-type">RateLimitStrategy</span></div>
+        </div>
+        <div class="node-section">
+            <div class="node-row"><span class="visibility">+</span><span class="method-name">call</span><span style="color:#94a3b8">(clientId, req)</span><span class="return-type">Response</span></div>
+        </div>
+    </div>
+
+    <div class="uml-node" id="node-FixedWindowStrategy" style="left:400px; top:260px;">
+        <div class="node-header"><span class="node-title">FixedWindowStrategy</span></div>
+        <div class="node-section">
+            <div class="node-row"><span class="visibility">−</span><span class="member-name">config</span><span class="member-type">RateLimiterConfig</span></div>
+            <div class="node-row"><span class="visibility">−</span><span class="member-name">requestCounts</span><span class="member-type">Map&lt;String,Integer&gt;</span></div>
+            <div class="node-row"><span class="visibility">−</span><span class="member-name">windowStartTimes</span><span class="member-type">Map&lt;String,Long&gt;</span></div>
+        </div>
+        <div class="node-section">
+            <div class="node-row"><span class="visibility">+</span><span class="method-name">isAllowed</span><span style="color:#94a3b8">(clientId)</span><span class="return-type">boolean</span></div>
+            <div class="node-row"><span class="visibility">+</span><span class="method-name">getConfig</span><span style="color:#94a3b8">()</span><span class="return-type">RateLimiterConfig</span></div>
+        </div>
+    </div>
+
+    <div class="uml-node" id="node-SlidingWindowStrategy" style="left:720px; top:260px;">
+        <div class="node-header"><span class="node-title">SlidingWindowStrategy</span></div>
+        <div class="node-section">
+            <div class="node-row"><span class="visibility">−</span><span class="member-name">config</span><span class="member-type">RateLimiterConfig</span></div>
+            <div class="node-row"><span class="visibility">−</span><span class="member-name">requestTimestamps</span><span class="member-type">Map&lt;String,List&lt;Long&gt;&gt;</span></div>
+        </div>
+        <div class="node-section">
+            <div class="node-row"><span class="visibility">+</span><span class="method-name">isAllowed</span><span style="color:#94a3b8">(clientId)</span><span class="return-type">boolean</span></div>
+            <div class="node-row"><span class="visibility">+</span><span class="method-name">getConfig</span><span style="color:#94a3b8">()</span><span class="return-type">RateLimiterConfig</span></div>
+        </div>
+    </div>
+
+    <!-- MODEL CLASSES -->
+    <div class="uml-node model-node" id="node-RateLimiterConfig" style="left:600px; top:520px;">
+        <div class="node-header"><span class="node-title">RateLimiterConfig</span></div>
+        <div class="node-section">
+            <div class="node-row"><span class="visibility">−</span><span class="member-name">maxRequests</span><span class="member-type">int</span></div>
+            <div class="node-row"><span class="visibility">−</span><span class="member-name">windowSizeSeconds</span><span class="member-type">int</span></div>
+            <div class="node-row"><span class="visibility">−</span><span class="member-name">refillRatePerSecond</span><span class="member-type">int</span></div>
+        </div>
+        <div class="node-section">
+            <div class="node-row"><span class="visibility">+</span><span class="method-name">getMaxRequests</span><span style="color:#94a3b8">()</span><span class="return-type">int</span></div>
+            <div class="node-row"><span class="visibility">+</span><span class="method-name">getWindowSizeSeconds</span><span style="color:#94a3b8">()</span><span class="return-type">int</span></div>
+            <div class="node-row"><span class="visibility">+</span><span class="method-name">getRefillRatePerSecond</span><span style="color:#94a3b8">()</span><span class="return-type">int</span></div>
+        </div>
+    </div>
+
+    <div class="uml-node model-node" id="node-Response" style="left:60px; top:490px;">
+        <div class="node-header"><span class="node-title">Response</span></div>
+        <div class="node-section">
+            <div class="node-row"><span class="visibility">−</span><span class="member-name">clientId</span><span class="member-type">String</span></div>
+            <div class="node-row"><span class="visibility">−</span><span class="member-name">body</span><span class="member-type">String</span></div>
+            <div class="node-row"><span class="visibility">−</span><span class="member-name">statusCode</span><span class="member-type">int</span></div>
+        </div>
+        <div class="node-section">
+            <div class="node-row"><span class="visibility">+</span><span class="method-name">getClientId</span><span style="color:#94a3b8">()</span><span class="return-type">String</span></div>
+            <div class="node-row"><span class="visibility">+</span><span class="method-name">getBody</span><span style="color:#94a3b8">()</span><span class="return-type">String</span></div>
+            <div class="node-row"><span class="visibility">+</span><span class="method-name">getStatusCode</span><span style="color:#94a3b8">()</span><span class="return-type">int</span></div>
+        </div>
+    </div>
+
+    <!-- EXCEPTION -->
+    <div class="uml-node exception-node" id="node-RateLimitExceededException" style="left:280px; top:490px;">
+        <div class="node-header">
+            <span class="node-stereotype">«exception»</span>
+            <span class="node-title">RateLimitExceededException</span>
+        </div>
+        <div class="node-section">
+            <div class="node-row"><span class="visibility">+</span><span class="method-name">RateLimitExceededException</span><span style="color:#94a3b8">(msg)</span></div>
+        </div>
+    </div>
+
+</div>
+
+<script>
+    // ─── Edge definitions ─────────────────────────────────────────
+    var edgeDefs = [
+        { from: 'node-RealRemoteAPIService',      to: 'node-RemoteAPIService',     type: 'implements', label: 'implements' },
+        { from: 'node-RateLimitedAPIProxy',       to: 'node-RemoteAPIService',     type: 'implements', label: 'implements' },
+        { from: 'node-RateLimitedAPIProxy',       to: 'node-RateLimitStrategy',    type: 'uses',       label: 'uses' },
+        { from: 'node-FixedWindowStrategy',       to: 'node-RateLimitStrategy',    type: 'implements', label: 'implements' },
+        { from: 'node-SlidingWindowStrategy',     to: 'node-RateLimitStrategy',    type: 'implements', label: 'implements' },
+        { from: 'node-FixedWindowStrategy',       to: 'node-RateLimiterConfig',    type: 'hasa',       label: 'has-a' },
+        { from: 'node-SlidingWindowStrategy',     to: 'node-RateLimiterConfig',    type: 'hasa',       label: 'has-a' },
+        { from: 'node-RemoteAPIService',          to: 'node-Response',             type: 'creates',    label: 'creates' },
+        { from: 'node-RateLimitedAPIProxy',       to: 'node-RateLimitExceededException', type: 'throws', label: 'throws' },
+    ];
+
+    var svg = document.getElementById('arrow-layer');
+    var svgLines = {};
+
+    // ─── Create SVG path per edge ─────────────────────────────────
+    edgeDefs.forEach(function(edge, index) {
+        var g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+
+        var path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+        path.setAttribute('fill', 'none');
+
+        if (edge.type === 'implements') {
+            path.setAttribute('stroke', '#818cf8');
+            path.setAttribute('stroke-dasharray', '6,4');
+            path.setAttribute('stroke-width', '1.5');
+            path.setAttribute('marker-end', 'url(#arrow-implements)');
+        } else if (edge.type === 'throws') {
+            path.setAttribute('stroke', '#f87171');
+            path.setAttribute('stroke-dasharray', '5,4');
+            path.setAttribute('stroke-width', '1.5');
+            path.setAttribute('marker-end', 'url(#arrow-throws)');
+        } else if (edge.type === 'creates') {
+            path.setAttribute('stroke', '#38bdf8');
+            path.setAttribute('stroke-dasharray', '5,4');
+            path.setAttribute('stroke-width', '1.5');
+            path.setAttribute('marker-end', 'url(#arrow-creates)');
+        } else if (edge.type === 'hasa') {
+            path.setAttribute('stroke', '#94a3b8');
+            path.setAttribute('stroke-width', '1.8');
+            path.setAttribute('marker-end', 'url(#arrow-hasa)');
+        } else {
+            path.setAttribute('stroke', '#94a3b8');
+            path.setAttribute('stroke-dasharray', '5,4');
+            path.setAttribute('stroke-width', '1.5');
+            path.setAttribute('marker-end', 'url(#arrow-uses)');
+        }
+
+        var text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+        text.setAttribute('class', 'edge-label');
+        text.textContent = edge.label;
+
+        g.appendChild(path);
+        g.appendChild(text);
+        svg.appendChild(g);
+
+        svgLines[index] = { path: path, text: text, def: edge };
+    });
+
+    // ─── Get center of a DOM node ───────────────────────────────── 
+    function getNodeCenter(id) {
+        var el = document.getElementById(id);
+        var wrap = document.getElementById('canvas-wrap');
+        var elR = el.getBoundingClientRect();
+        var wR = wrap.getBoundingClientRect();
+        return {
+            x: elR.left - wR.left + elR.width / 2,
+            y: elR.top - wR.top + elR.height / 2,
+            left: elR.left - wR.left,
+            right: elR.right - wR.left,
+            top: elR.top - wR.top,
+            bottom: elR.bottom - wR.top,
+            width: elR.width,
+            height: elR.height
+        };
+    }
+
+    // Get closest edge point between two boxes
+    function getEdgePoint(from, to) {
+        var dx = to.x - from.x;
+        var dy = to.y - from.y;
+        var angle = Math.atan2(dy, dx);
+
+        var fromX, fromY, toX, toY;
+
+        // exit point from 'from' node
+        var halfW = from.width / 2;
+        var halfH = from.height / 2;
+        if (Math.abs(Math.cos(angle) * halfH) > Math.abs(Math.sin(angle) * halfW)) {
+            fromX = from.x + Math.sign(dx) * halfW;
+            fromY = from.y + Math.sign(dx) * halfW * Math.tan(angle);
+        } else {
+            fromX = from.x + Math.sign(dy) * halfH / Math.tan(angle);
+            fromY = from.y + Math.sign(dy) * halfH;
+        }
+
+        // entry point into 'to' node  
+        var halfW2 = to.width / 2;
+        var halfH2 = to.height / 2;
+        if (Math.abs(Math.cos(angle) * halfH2) > Math.abs(Math.sin(angle) * halfW2)) {
+            toX = to.x - Math.sign(dx) * halfW2;
+            toY = to.y - Math.sign(dx) * halfW2 * Math.tan(angle);
+        } else {
+            toX = to.x - Math.sign(dy) * halfH2 / Math.tan(angle);
+            toY = to.y - Math.sign(dy) * halfH2;
+        }
+
+        return { fx: fromX, fy: fromY, tx: toX, ty: toY };
+    }
+
+    // ─── Redraw all line paths ─────────────────────────────────────
+    function redrawEdges() {
+        for (var i = 0; i < edgeDefs.length; i++) {
+            var def = edgeDefs[i];
+            var fromC = getNodeCenter(def.from);
+            var toC = getNodeCenter(def.to);
+            var pts = getEdgePoint(fromC, toC);
+
+            var midX = (pts.fx + pts.tx) / 2;
+            var midY = (pts.fy + pts.ty) / 2;
+
+            var dx = pts.tx - pts.fx;
+            var dy = pts.ty - pts.fy;
+            var cx1 = pts.fx + dx * 0.33;
+            var cy1 = pts.fy + dy * 0.33;
+            var cx2 = pts.fx + dx * 0.66;
+            var cy2 = pts.fy + dy * 0.66;
+
+            var d = 'M ' + pts.fx + ' ' + pts.fy +
+                    ' C ' + cx1 + ' ' + cy1 + ', ' + cx2 + ' ' + cy2 + ', ' + pts.tx + ' ' + pts.ty;
+
+            svgLines[i].path.setAttribute('d', d);
+            svgLines[i].text.setAttribute('x', midX);
+            svgLines[i].text.setAttribute('y', midY - 6);
+            svgLines[i].text.setAttribute('text-anchor', 'middle');
+        }
+    }
+
+    // ─── Drag Logic ───────────────────────────────────────────────
+    var dragged = null;
+    var dragOffsetX = 0;
+    var dragOffsetY = 0;
+
+    document.querySelectorAll('.uml-node').forEach(function(node) {
+        node.addEventListener('mousedown', function(e) {
+            dragged = node;
+            node.classList.add('dragging');
+            var rect = node.getBoundingClientRect();
+            dragOffsetX = e.clientX - rect.left;
+            dragOffsetY = e.clientY - rect.top;
+            e.preventDefault();
+        });
+    });
+
+    window.addEventListener('mousemove', function(e) {
+        if (!dragged) return;
+        var wrap = document.getElementById('canvas-wrap').getBoundingClientRect();
+        var newLeft = e.clientX - wrap.left - dragOffsetX;
+        var newTop = e.clientY - wrap.top - dragOffsetY;
+        dragged.style.left = newLeft + 'px';
+        dragged.style.top = newTop + 'px';
+        redrawEdges();
+    });
+
+    window.addEventListener('mouseup', function() {
+        if (dragged) {
+            dragged.classList.remove('dragging');
+            dragged = null;
+        }
+    });
+
+    // ─── Initial draw ─────────────────────────────────────────────
+    window.addEventListener('load', redrawEdges);
+    setTimeout(redrawEdges, 100);
+</script>
+</body>
+</html>
